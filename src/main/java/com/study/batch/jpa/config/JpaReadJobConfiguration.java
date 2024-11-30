@@ -1,6 +1,9 @@
 package com.study.batch.jpa.config;
 
 import com.study.batch.jpa.domain.BatchJobExecution;
+import com.study.batch.jpa.domain.BatchJobExecutionComposite;
+import com.study.batch.jpa.processor.ItemConvertProcessor;
+import com.study.batch.jpa.processor.LocalDateTimeToStringProcessor;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ExitStatus;
@@ -14,12 +17,15 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
+import org.springframework.batch.item.support.CompositeItemProcessor;
+import org.springframework.batch.item.support.builder.CompositeItemProcessorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @Slf4j
@@ -68,14 +74,24 @@ public class JpaReadJobConfiguration {
     }
 
     @Bean
-    public FlatFileItemWriter<BatchJobExecution> batchJobExecutionJpaFlatFileItemWriter() {
-        return new FlatFileItemWriterBuilder<BatchJobExecution>()
+    public CompositeItemProcessor<BatchJobExecution, BatchJobExecutionComposite> compositeItemProcessor() {
+        return new CompositeItemProcessorBuilder<BatchJobExecution, BatchJobExecutionComposite>()
+                .delegates(List.of(
+                        new ItemConvertProcessor<BatchJobExecution, BatchJobExecutionComposite>(BatchJobExecutionComposite.class),
+                        new LocalDateTimeToStringProcessor<BatchJobExecutionComposite>()
+                ))
+                .build();
+    }
+
+    @Bean
+    public FlatFileItemWriter<BatchJobExecutionComposite> batchJobExecutionJpaFlatFileItemWriter() {
+        return new FlatFileItemWriterBuilder<BatchJobExecutionComposite>()
                 .name("customerJpaFlatFileItemWriter")
                 .resource(new FileSystemResource("./output/batch_failure.csv"))
                 .encoding(ENCODING)
                 .delimited().delimiter(",")
-                .names("JobExecutionId", "Version", "JobInstanceId", "CreateTime", "StartTime",
-                        "EndTime", "Status", "ExitCode", "LastUpdated")
+                .names("jobExecutionId", "version", "jobInstanceId", "createTimeString", "startTimeString",
+                        "endTimeString", "status", "exitCode", "lastUpdatedString")
                 .headerCallback(writer -> writer.write("JobExecutionId,Version,JobInstanceId,CreateTime,StartTime," +
                         "EndTime,Status,ExitCode,LastUpdated"))
                 .build();
@@ -87,9 +103,9 @@ public class JpaReadJobConfiguration {
         log.info("------------------ Init batchJobExecutionJJpaPagingStep -----------------");
 
         return new StepBuilder("jobExecutionJpaPagingStep", jobRepository)
-                .<BatchJobExecution, BatchJobExecution>chunk(CHUNK_SIZE, transactionManager)
+                .<BatchJobExecution, BatchJobExecutionComposite>chunk(CHUNK_SIZE, transactionManager)
                 .reader(batchJobExecutionJpaPagingItemReader())
-                .processor(batchJobExecutionJpaItemProcessor())
+                .processor(compositeItemProcessor())
                 .writer(batchJobExecutionJpaFlatFileItemWriter())
                 .build();
     }

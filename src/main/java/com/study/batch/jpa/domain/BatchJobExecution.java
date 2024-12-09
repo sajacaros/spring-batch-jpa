@@ -2,12 +2,14 @@ package com.study.batch.jpa.domain;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 import org.springframework.batch.core.BatchStatus;
 
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "batch_job_execution")
 public class BatchJobExecution {

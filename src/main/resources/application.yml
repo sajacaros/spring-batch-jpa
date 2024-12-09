@@ -10,7 +10,7 @@ spring:
   batch:
     job:
       enabled: true
-      name: JPA_PAGING_CHUNK_JOB # JPA_ITEM_WRITER_JOB
+      name: QUERYDSL_PAGING_CHUNK_JOB #JPA_PAGING_CHUNK_JOB # JPA_ITEM_WRITER_JOB
   sql:
     init:
       mode: never
